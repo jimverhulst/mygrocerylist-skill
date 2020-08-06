@@ -1,0 +1,86 @@
+# Based on an article from 19 Jun 2020 by Steve Ovens
+# How to prepare to write your first Mycroft AI skill using Python
+import asyncio
+from ourgroceries import OurGroceries # Requires 'pip install ourgroceries'
+import datetime
+import json
+import os
+import requests
+
+USERNAME = "jim.verhulst65@gmail.com"
+PASSWORD = "Buffyog@39"
+OG = OurGroceries(USERNAME, PASSWORD)
+# x = requests.post('http://ourgroceries.com')
+# print(x)
+asyncio.run(OG.login())
+# session = requests.Session()
+# print(session.cookies.get_dict())
+# response = session.get('http://ourgroceries.com')
+# print(session.cookies.get_dict())
+
+MY_LIST_ID = "5cXTHepyW018SM308309jC"
+CURRENT_TIME = datetime.datetime.now()
+TIME_HEADING_IN_DICT = 'refresh_date'
+# print("refresh_date is", refresh_date)
+GROCERY_STATE_FILE = "ourgroceries.txt"
+# print("ourgroceries.txt is", GROCERY_STATE_FILE)
+CATEGORY_STATE_FILE = "categories.txt"
+bla = asyncio.run(OG.get_my_lists())
+print("bla is ", bla)
+for shopping_list in bla['shoppingLists']:
+    print("My shopping lists are for", shopping_list['name'])
+items = asyncio.run(OG.get_list_items(list_id=MY_LIST_ID))
+print("list_items are ", items)
+print("")
+
+
+def fetch_list_and_categories(object_type=None):
+    if object_type == "groceries":
+        list_to_return = asyncio.run(OG.get_list_items(list_id=MY_LIST_ID))
+    elif object_type == "categories":
+        list_to_return = asyncio.run(OG.get_category_items())
+    else:
+        list_to_return = None
+    return (list_to_return)
+
+
+def return_category_id(category_to_search_for, all_categories):
+    category_to_search_for_lower = category_to_search_for.lower()
+    category_id = None
+    if len(all_categories['list']['items']) != 0:
+        for category_heading in all_categories['list']['items']:
+            # Split the heading because if there is already a duplicate it
+            # presents as "{{item}} (2)"
+            category_heading_lowered = category_heading['value'].lower().split()[0]
+            if category_to_search_for_lower == category_heading_lowered:
+                category_id = category_heading['id']
+                break
+    return(category_id)
+
+def add_to_my_list(full_list, item_name, all_categories, category="uncategorized"):
+    # check to make sure the object doesn't exist
+    # The groceries live in my_full_list['list']['items']
+    # Start with the assumption that the food does not exist
+    food_exists = False
+    toggle_crossed_off = False
+    category_lowered = category.lower()
+    for food_item in full_list['list']['items']:
+        if item_name in food_item['value']:
+            print("Already exists")
+            food_exists = True
+    if not food_exists:
+        category_id = return_category_id(category_lowered, all_categories)
+        asyncio.run(OG.add_item_to_list(MY_LIST_ID, item_name, category_id))
+        print("Added item")
+
+def add_category(category_name, all_categories):
+    category_id = return_category_id(category_name, all_categories)
+    if category_id is None:
+        asyncio.run(OG.create_category(category_name))
+        refresh_lists()
+        print("Added Category")
+    else:
+        print("Category already exists")
+
+
+# my_full_list, current_categories = refresh_lists(override=True)
